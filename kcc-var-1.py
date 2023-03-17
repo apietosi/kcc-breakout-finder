@@ -1,5 +1,8 @@
 import requests
 import json
+import hmac
+import hashlib
+import time
 
 # Set your API key and secret
 api_key = 'YOUR_API_KEY'
@@ -18,6 +21,10 @@ order_type = 'market'  # or 'limit'
 stop_loss = 9500  # optional
 take_profit = 10500  # optional
 
+# Function to generate signature
+def generate_signature(secret, data):
+    return hmac.new(secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
+
 # Set the order side ('buy' or 'sell') based on the current price
 url = f'https://futures.kucoin.com/api/v1/market/ticker?symbol={symbol}'
 response = requests.get(url)
@@ -30,7 +37,9 @@ else:
 
 # Place the order
 url = 'https://futures.kucoin.com/api/v1/orders'
-headers = {'KC-API-KEY': api_key, 'KC-API-SECRET': api_secret}
+method = 'POST'
+timestamp = str(int(time.time() * 1000))
+path = '/api/v1/orders'
 data = {
     'symbol': symbol,
     'side': side,
@@ -40,7 +49,19 @@ data = {
     'stopLoss': stop_loss,  # optional
     'takeProfit': take_profit  # optional
 }
-response = requests.post(url, headers=headers, json=data)
+data_str = json.dumps(data)
+signature_str = f"{timestamp}{method}{path}{data_str}"
+signature = generate_signature(api_secret, signature_str)
+
+headers = {
+    'KC-API-KEY': api_key,
+    'KC-API-SIGN': signature,
+    'KC-API-TIMESTAMP': timestamp,
+    'KC-API-PASSPHRASE': api_secret, # Replace with the API passphrase if one is required
+    'Content-Type': 'application/json'
+}
+
+response = requests.post(url, headers=headers, data=data_str)
 
 # Print the response
 print(response.text)
