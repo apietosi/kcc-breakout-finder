@@ -16,16 +16,15 @@ num_candles = 100
 
 # Send a request to the Kucoin Futures API to get the chart data
 url = f'https://futures.kucoin.com/api/v1/market/candles?symbol={symbol}&timeframe={timeframe}&limit={num_candles}'
-headers = {'KC-API-KEY': api_key, 'KC-API-SECRET': api_secret}
-response = requests.get(url, headers=headers)
+response = requests.get(url)
 
 # Parse the response and extract the chart data
 data = json.loads(response.text)
 candles = data['data']['candles']
 
 # Calculate the high and low over the past num_candles candles
-high = max([candle[2] for candle in candles])
-low = min([candle[3] for candle in candles])
+high = max([float(candle[2]) for candle in candles])
+low = min([float(candle[3]) for candle in candles])
 
 # Calculate the breakout price as the average of the high and low
 breakout_price = (high + low) / 2
