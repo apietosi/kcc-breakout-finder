@@ -1,33 +1,67 @@
 import requests
-import json
+import hmac
+import hashlib
+import time
 
-# Set your API key and secret
-api_key = 'YOUR_API_KEY'
-api_secret = 'YOUR_API_SECRET'
+# Configuration
+API_KEY = 'YOUR_API_KEY'
+API_SECRET = 'YOUR_API_SECRET'
+SYMBOL = 'BTC-USDT'
+ORDER_SIZE = 1
+LEVERAGE = 10
+ORDER_TYPE = 'market'  # or 'limit'
+STOP_LOSS = 9500  # optional
+TAKE_PROFIT = 10500  # optional
 
-# Set the symbol for the futures contract you want to trade
-symbol = 'BTC-USDT'
+# Function to generate signature
+def generate_signature(secret, data):
+    return hmac.new(secret.encode('utf-8'), data.encode('utf-8'), hashlib.sha256).hexdigest()
 
-# Set the order size and other trade parameters
-order_size = 1
-leverage = 10
-order_type = 'market'  # or 'limit'
-stop_loss = 9500  # optional
-take_profit = 10500  # optional
+def place_order(api_key, api_secret, symbol, order_size, leverage, order_type, stop_loss=None, take_profit=None):
+    url = 'https://futures.kucoin.com/api/v1/orders'
+    method = 'POST'
+    timestamp = str(int(time.time() * 1000))
+    path = '/api/v1/orders'
+    data = {
+        'symbol': symbol,
+        'side': 'buy',  # or 'sell'
+        'size': order_size,
+        'leverage': leverage,
+        'type': order_type,
+    }
+    if stop_loss:
+        data['stopLoss'] = stop_loss
+    if take_profit:
+        data['takeProfit'] = take_profit
 
-# Place the order
-url = 'https://futures.kucoin.com/api/v1/orders'
-headers = {'KC-API-KEY': api_key, 'KC-API-SECRET': api_secret}
-data = {
-    'symbol': symbol,
-    'side': 'buy',  # or 'sell'
-    'size': order_size,
-    'leverage': leverage,
-    'type': order_type,
-    'stopLoss': stop_loss,  # optional
-    'takeProfit': take_profit  # optional
-}
-response = requests.post(url, headers=headers, json=data)
+    data_str = json.dumps(data)
+    signature_str = f"{timestamp}{method}{path}{data_str}"
+    signature = generate_signature(api_secret, signature_str)
 
-# Print the response
-print(response.text)
+    headers = {
+        'KC-API-KEY': api_key,
+        'KC-API-SIGN': signature,
+        'KC-API-TIMESTAMP': timestamp,
+        'KC-API-PASSPHRASE': api_secret, # Replace with the API passphrase if one is required
+        'Content-Type': 'application/json'
+    }
+
+    try:
+        response = requests.post(url, headers=headers, data=data_str)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        print(f"Error occurred: {err}")
+        return None
+
+    return response.json()
+
+
+def main():
+    response = place_order(API_KEY, API_SECRET, SYMBOL, ORDER_SIZE, LEVERAGE, ORDER_TYPE, STOP_LOSS, TAKE_PROFIT)
+
+    if response:
+        print(response)
+
+
+if __name__ == '__main__':
+    main()
